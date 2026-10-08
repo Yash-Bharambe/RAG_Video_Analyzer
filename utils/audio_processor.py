@@ -6,6 +6,8 @@ import sys
 import shutil
 from pathlib import Path
 from uuid import uuid4
+from urllib.parse import urlsplit, parse_qs
+import re
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DOWNLOAD_DIR = str(PROJECT_ROOT / 'downloades')
@@ -25,6 +27,12 @@ _FFMPEG_LOCATION = _find_ffmpeg()
 
 
 def download_youtube_audio(url: str) -> str:
+    url = url.strip()
+    parsed = urlsplit(url)
+    if (parsed.hostname or "").lower() in {"youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com"}:
+        video_id = parse_qs(parsed.query).get("v", [""])[0]
+        if re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id):
+            url = f"https://www.youtube.com/watch?v={video_id}"
     output_path = os.path.join(DOWNLOAD_DIR, f"{uuid4().hex}_%(id)s.%(ext)s")
 
     ydl_opts = {
@@ -48,13 +56,24 @@ def download_youtube_audio(url: str) -> str:
             }
         ],
         "quiet": True,
+        # Node must be explicitly enabled; the cloud requirements install it.
+        "js_runtimes": {"node": {}},
+        "socket_timeout": 30,
     }
 
     if _FFMPEG_LOCATION:
         ydl_opts["ffmpeg_location"] = _FFMPEG_LOCATION
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
+        try:
+            info = ydl.extract_info(url, download=True)
+        except yt_dlp.utils.DownloadError as error:
+            if "403" in str(error) or "confirm you're not a bot" in str(error).lower():
+                raise RuntimeError(
+                    "YouTube rejected the download from this server. "
+                    "Use Upload audio/video with a file you have available, or try another video."
+                ) from error
+            raise
         filename = str(Path(ydl.prepare_filename(info)).with_suffix('.wav'))
         if not Path(filename).is_file():
             raise RuntimeError('Audio conversion did not produce a WAV file.')

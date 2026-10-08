@@ -1,6 +1,8 @@
 import utils.env_setup  # Enforces safe drive paths and env
 import streamlit as st
 import time
+from pathlib import Path
+from uuid import uuid4
 from dotenv import load_dotenv
 load_dotenv()
 from utils.audio_processor import process_input
@@ -336,7 +338,13 @@ with st.sidebar:
     st.markdown("---")
 
     st.markdown('<span class="badge badge-purple">Input</span>', unsafe_allow_html=True)
-    source = st.text_input("YouTube URL or File Path", placeholder="https://youtube.com/watch?v=... or /path/to/file.mp4")
+    input_mode = st.radio("Input source", ["YouTube URL or file path", "Upload audio/video"])
+    uploaded_file = None
+    source = ""
+    if input_mode == "Upload audio/video":
+        uploaded_file = st.file_uploader("Audio or video file", type=["mp4", "webm", "mkv", "mov", "mp3", "wav", "m4a", "ogg", "flac"])
+    else:
+        source = st.text_input("YouTube URL or File Path", placeholder="https://youtube.com/watch?v=... or /path/to/file.mp4")
 
     language = st.selectbox("Language", ["english", "hinglish"], index=0)
 
@@ -362,8 +370,8 @@ st.markdown("---")
 
 # ── Run Pipeline ────────────────────────────────────────────────────────────────
 if run_btn:
-    if not source.strip():
-        st.error("Please enter a YouTube URL or file path.")
+    if not source.strip() and uploaded_file is None:
+        st.error("Please enter a YouTube URL or file path, or upload an audio/video file.")
     else:
         st.session_state.pipeline_done = False
         st.session_state.result = None
@@ -375,12 +383,22 @@ if run_btn:
         def update_step(key, state):
             st.session_state.pipeline_steps[key] = state
 
+        temporary_files = []
         try:
             with progress_placeholder.container():
                 st.info("⚙️ Pipeline running — see sidebar for live status…")
 
             update_step("audio", "active")
+            if uploaded_file is not None:
+                suffix = Path(uploaded_file.name).suffix.lower()
+                upload_path = utils.env_setup.TMP_DIR / f"upload_{uuid4().hex}{suffix}"
+                source = str(upload_path)
+                temporary_files.extend([upload_path, upload_path.with_name(upload_path.stem + "_converted.wav")])
+                with upload_path.open("wb") as output:
+                    output.write(uploaded_file.getbuffer())
             chunks = process_input(source)
+            if uploaded_file is not None:
+                temporary_files.extend(Path(chunk) for chunk in chunks)
             update_step("audio", "done")
 
             update_step("transcript", "active")
@@ -425,6 +443,9 @@ if run_btn:
                 if st.session_state.pipeline_steps.get(k) == "active":
                     st.session_state.pipeline_steps[k] = "pending"
             progress_placeholder.error(f"❌ Error: {e}")
+        finally:
+            for temporary_file in temporary_files:
+                temporary_file.unlink(missing_ok=True)
 
 # ── Results ──────────────────────────────────────────────────────────────────────
 if st.session_state.result:

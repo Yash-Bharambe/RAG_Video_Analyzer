@@ -17,6 +17,9 @@ the app. The CPU wheels in this deployment are specifically for Python 3.11.
 The root `packages.txt` installs FFmpeg; `cloud/requirements.txt` installs CPU-only
 PyTorch and the app dependencies. Streamlit Community Cloud installs requirements
 from the entry point directory first.
+The cloud requirements also install Node.js 22 or newer, explicitly enabled in
+yt-dlp for YouTube's JavaScript challenges. If YouTube rejects the cloud server,
+choose **Upload audio/video** and select a file from your computer instead.
 
 This entry point uses Whisper `tiny` and releases it after each audio chunk to
 reduce memory use before loading embeddings. Transcripts use separate in-memory
