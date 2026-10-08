@@ -10,6 +10,10 @@ Open https://share.streamlit.io and sign in using GitHub. Create an app with:
   with your actual keys. Never commit real secrets.
 
 Click Deploy. A successful build will display the live `.streamlit.app` URL.
+If an existing deployment uses Python 3.14 (or another version), delete that
+Streamlit app and create it again with Python 3.11 in Advanced settings. A reboot
+does not change its Python version. Save your secrets and app URL before deleting
+the app. The CPU wheels in this deployment are specifically for Python 3.11.
 The root `packages.txt` installs FFmpeg; `cloud/requirements.txt` installs CPU-only
 PyTorch and the app dependencies. Streamlit Community Cloud installs requirements
 from the entry point directory first.
