@@ -1,6 +1,7 @@
 import utils.env_setup  # Enforces safe drive paths and env
 import streamlit as st
 import time
+import os
 from pathlib import Path
 from uuid import uuid4
 from dotenv import load_dotenv
@@ -377,7 +378,17 @@ with st.sidebar:
 
     language = st.selectbox("Language", ["english", "hinglish"], index=0)
 
-    run_btn = st.button("⚡  Analyse", use_container_width=True)
+    providers = ["mistral", "groq"]
+    default_provider = os.getenv("LLM_PROVIDER", "mistral").lower()
+    provider = st.selectbox("AI provider", providers,
+                            index=providers.index(default_provider) if default_provider in providers else 0,
+                            format_func=lambda value: {"mistral": "Mistral", "groq": "Groq"}[value])
+    provider_label = {"mistral": "Mistral", "groq": "Groq"}[provider]
+    provider_ready = bool(os.getenv(f"{provider.upper()}_API_KEY", "").strip())
+    if not provider_ready:
+        st.warning(f"Add {provider.upper()}_API_KEY in Streamlit secrets to use {provider_label}.")
+
+    run_btn = st.button("⚡  Analyse", width="stretch", disabled=not provider_ready)
 
     if st.session_state.pipeline_done:
         st.markdown("---")
@@ -398,7 +409,7 @@ st.markdown('<div class="hero-sub">Transcribe · Summarise · Chat with your mee
 st.markdown("---")
 
 # ── Run Pipeline ────────────────────────────────────────────────────────────────
-st.caption("This project uses Mistral's free API tier. Request and token limits apply.")
+st.caption(f"Selected AI provider: {provider_label}. This project uses free API tiers; request and token limits apply.")
 workflow_placeholder = st.empty()
 error_placeholder = st.empty()
 if st.session_state.pipeline_steps:
@@ -446,22 +457,22 @@ if run_btn:
             update_step("transcript", "done")
 
             update_step("title", "active")
-            title = generate_title(transcript)
+            title = generate_title(transcript, provider=provider)
             update_step("title", "done")
 
             update_step("summary", "active")
-            summary = summarize(transcript)
+            summary = summarize(transcript, provider=provider)
             update_step("summary", "done")
 
             update_step("extract", "active")
-            details = extractor.extract_meeting_details(transcript)
+            details = extractor.extract_meeting_details(transcript, provider=provider)
             action_items = details["action_items"]
             decisions = details["key_decisions"]
             questions = details["open_questions"]
             update_step("extract", "done")
 
             update_step("rag", "active")
-            rag_chain = build_rag_chain(transcript)
+            rag_chain = build_rag_chain(transcript, provider=provider)
             update_step("rag", "done")
 
             st.session_state.result = {
@@ -472,6 +483,7 @@ if run_btn:
                 "key_decisions": decisions,
                 "open_questions": questions,
                 "rag_chain": rag_chain,
+                "provider": provider,
             }
             st.session_state.pipeline_done = True
             progress_placeholder.success("✅ Analysis complete!")
@@ -494,6 +506,9 @@ if run_btn:
 # ── Results ──────────────────────────────────────────────────────────────────────
 if st.session_state.result:
     r = st.session_state.result
+    result_provider = r.get("provider", "mistral")
+    if result_provider != provider:
+        st.info(f"These results and their chat use {result_provider.title()}. Run Analyse again to use {provider_label}.")
 
     # Title banner
     st.markdown(f"""

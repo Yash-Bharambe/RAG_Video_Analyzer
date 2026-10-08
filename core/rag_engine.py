@@ -6,16 +6,16 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 from core.vector_store import build_vector_store, load_vector_store, get_retriever
 
-def get_llm():
-    return create_llm(temperature=0.3)
+def get_llm(provider=None):
+    return create_llm(temperature=0.3, provider=provider)
 
 def format_docs(docs):
     return "\n\n".join([doc.page_content for doc in docs])
 
-def build_rag_chain(transcript: str):
+def build_rag_chain(transcript: str, provider=None):
     vector_store = build_vector_store(transcript)
     retriever = get_retriever(vector_store, k=4)
-    llm = get_llm()
+    llm = get_llm(provider)
 
     prompt = ChatPromptTemplate.from_messages(
         [(

@@ -7,8 +7,8 @@ from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 import os 
 
 
-def get_llm():
-    return create_llm(temperature=0.3)
+def get_llm(provider=None):
+    return create_llm(temperature=0.3, provider=provider)
 
 
 def split_transcript(transcript: str) -> list:
@@ -19,8 +19,8 @@ def split_transcript(transcript: str) -> list:
     return splitter.split_text(transcript)
 
 
-def summarize(transcript: str) -> str:
-    llm = get_llm()
+def summarize(transcript: str, provider=None) -> str:
+    llm = get_llm(provider)
 
     map_prompt = ChatPromptTemplate.from_messages(
         [
@@ -55,8 +55,8 @@ def summarize(transcript: str) -> str:
     return combined_chain.invoke(combined)
 
 
-def generate_title(transcipt: str) -> str:
-    llm = get_llm()
+def generate_title(transcipt: str, provider=None) -> str:
+    llm = get_llm(provider)
 
     title_chain = (
         RunnablePassthrough() | RunnableLambda(lambda x: {"text": x}) | 

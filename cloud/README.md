@@ -34,3 +34,19 @@ succeed. Uploaded files, caches, and vector collections are not durable storage.
 
 Official documentation:
 https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy
+
+## Mistral or Groq
+
+The sidebar's **AI provider** selector chooses Mistral or Groq for each analysis.
+Add `GROQ_API_KEY` in Streamlit's secrets to enable Groq. Its default model is
+`openai/gpt-oss-120b`; set `GROQ_MODEL` to use another available Groq chat model.
+Set `LLM_PROVIDER = "groq"` to make Groq the default, or retain `"mistral"`.
+Missing credentials disable analysis before audio processing starts. Selection is
+passed explicitly per analysis, so one visitor cannot change another visitor's
+provider. Existing results and chat retain their original provider; analyse again
+to change providers. Both services enforce free-plan quotas; there is no automatic
+provider fallback.
+
+Get a key: https://console.groq.com/keys
+Current models: https://console.groq.com/docs/models
+Free-plan limits: https://console.groq.com/docs/rate-limits
