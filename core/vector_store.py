@@ -1,6 +1,7 @@
 import utils.env_setup  # Enforces safe drive paths and env before imports
 import os
 from pathlib import Path
+from uuid import uuid4
 from langchain_chroma import Chroma 
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -37,8 +38,8 @@ def build_vector_store(transcript: str) -> Chroma:
     vector_store = Chroma.from_documents(
         documents=docs,
         embedding=embeddings,
-        collection_name=COLLECTION_NAME,
-        persist_directory=CHROMA_DIR
+        collection_name=(f"transcript_{uuid4().hex}" if os.getenv("ISOLATE_TRANSCRIPTS") == "1" else COLLECTION_NAME),
+        persist_directory=(None if os.getenv("ISOLATE_TRANSCRIPTS") == "1" else CHROMA_DIR)
     )
 
     return vector_store

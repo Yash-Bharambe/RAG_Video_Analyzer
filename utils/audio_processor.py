@@ -5,6 +5,7 @@ import os
 import sys
 import shutil
 from pathlib import Path
+from uuid import uuid4
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DOWNLOAD_DIR = str(PROJECT_ROOT / 'downloades')
@@ -24,7 +25,7 @@ _FFMPEG_LOCATION = _find_ffmpeg()
 
 
 def download_youtube_audio(url: str) -> str:
-    output_path = os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s")
+    output_path = os.path.join(DOWNLOAD_DIR, f"{uuid4().hex}_%(id)s.%(ext)s")
 
     ydl_opts = {
         "format": "bestaudio/best",

@@ -1,6 +1,8 @@
 import utils.env_setup  # Enforces safe drive paths and env before imports
 import whisper
 import os
+import gc
+from threading import RLock
 from pathlib import Path
 import requests
 from pydub import AudioSegment
@@ -18,6 +20,7 @@ SARVAM_STT_TRANSLATE_URL = "https://api.sarvam.ai/speech-to-text-translate"
 SARVAM_MODEL = os.getenv("SARVAM_STT_MODEL", "saaras:v2.5")
 
 _model = None
+_model_lock = RLock()
 
 
 def load_model():
@@ -32,9 +35,17 @@ def load_model():
 
 
 def transcribe_chunk_whisper(chunk_path: str) -> str:
-    model = load_model()  
-    result = model.transcribe(chunk_path, task="transcribe")  
-    return result["text"]  
+    global _model
+    with _model_lock:
+        try:
+            model = load_model()
+            result = model.transcribe(chunk_path, task="transcribe", fp16=False)
+            return result["text"]
+        finally:
+            if os.getenv("RELEASE_WHISPER_AFTER_TRANSCRIPTION") == "1":
+                _model = None
+                model = None
+                gc.collect()
 
 
 def _send_to_sarvam(piece_path: str) -> str:

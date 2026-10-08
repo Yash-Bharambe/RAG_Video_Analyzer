@@ -50,7 +50,7 @@ def _get_mistral_llm(temperature=0.3):
     api_key = os.getenv('MISTRAL_API_KEY', '').strip()
     if not api_key:
         raise ValueError('MISTRAL_API_KEY is not set in environment or .env')
-    model = os.getenv('MISTRAL_MODEL', 'open-mistral-7b').strip()
+    model = os.getenv('MISTRAL_MODEL', 'mistral-small-2603').strip()
     return RateLimitMistral(
         model=model,
         mistral_api_key=api_key,
