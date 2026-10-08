@@ -8,7 +8,11 @@ load_dotenv()
 from utils.audio_processor import process_input
 from core.transcriber import transcribe_all
 from core.summarizer import summarize, generate_title
-from core.extractor import extract_meeting_details
+from core import extractor
+# Streamlit reruns can retain the module imported before a live source update.
+if not hasattr(extractor, "extract_meeting_details"):
+    import importlib
+    importlib.reload(extractor)
 from core.rag_engine import build_rag_chain, ask_question
 
 # ─── Page Config ────────────────────────────────────────────────────────────────
@@ -414,7 +418,7 @@ if run_btn:
             update_step("summary", "done")
 
             update_step("extract", "active")
-            details = extract_meeting_details(transcript)
+            details = extractor.extract_meeting_details(transcript)
             action_items = details["action_items"]
             decisions = details["key_decisions"]
             questions = details["open_questions"]
