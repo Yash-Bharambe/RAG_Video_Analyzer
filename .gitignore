@@ -1,1 +1,22 @@
+# Secrets — NEVER commit
 .env
+
+# Virtual environment
+.venv/
+
+# Runtime temporary files (generated on the fly)
+.tmp/
+.cache/
+.tools/
+downloades/
+vector_db/
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# OS artefacts
+.DS_Store
+Thumbs.db
