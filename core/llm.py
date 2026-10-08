@@ -2,6 +2,8 @@
 import utils.env_setup  # Enforces safe drive paths and env before imports
 import logging
 import os
+import time
+from threading import Lock
 
 import httpx
 from langchain_mistralai import ChatMistralAI
@@ -18,7 +20,9 @@ from tenacity import (
 )
 
 logger = logging.getLogger(__name__)
-_backoff = wait_exponential_jitter(initial=5, max=60)
+_backoff = wait_exponential_jitter(initial=15, max=60)
+_request_lock = Lock()
+_last_request = 0.0
 
 
 def _is_rate_limit(error):
@@ -43,7 +47,14 @@ class RateLimitMistral(ChatMistralAI):
         reraise=True,
     )
     def completion_with_retry(self, run_manager=None, **kwargs):
-        return super().completion_with_retry(run_manager=run_manager, **kwargs)
+        global _last_request
+        # Shared across clients and Streamlit sessions in this server process.
+        with _request_lock:
+            delay = 2.0 - (time.monotonic() - _last_request)
+            if delay > 0:
+                time.sleep(delay)
+            _last_request = time.monotonic()
+            return super().completion_with_retry(run_manager=run_manager, **kwargs)
 
 
 def _get_mistral_llm(temperature=0.3):
@@ -55,6 +66,7 @@ def _get_mistral_llm(temperature=0.3):
         model=model,
         mistral_api_key=api_key,
         temperature=temperature,
+        max_tokens=1024,
     )
 
 

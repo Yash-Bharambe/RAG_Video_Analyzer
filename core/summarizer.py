@@ -32,6 +32,8 @@ def summarize(transcript: str) -> str:
     map_chain = map_prompt | llm | StrOutputParser()
     chunks = split_transcript(transcript)
     chunk_summaries = [map_chain.invoke({"text": chunk}) for chunk in chunks]
+    if len(chunk_summaries) == 1:
+        return chunk_summaries[0]
 
     combined = "\n\n".join(chunk_summaries)
 
