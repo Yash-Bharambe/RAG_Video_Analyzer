@@ -82,6 +82,16 @@ html, body, [class*="css"] {
 }
 
 /* ── Headings ── */
+[data-testid="stSidebar"] .recommendation {
+    color: #34d399 !important;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(52, 211, 153, 0.45);
+    border-radius: 8px;
+    padding: 0.55rem 0.7rem;
+    margin: 0.5rem 0 0.8rem;
+    font-size: 0.8rem;
+}
+
 h1, h2, h3, h4, h5, h6 {
     font-family: 'Syne', sans-serif !important;
     color: var(--text) !important;
@@ -368,7 +378,9 @@ with st.sidebar:
     st.markdown("---")
 
     st.markdown('<span class="badge badge-purple">Input</span>', unsafe_allow_html=True)
-    input_mode = st.radio("Input source", ["YouTube URL or file path", "Upload audio/video"])
+    input_mode = st.radio("Input source", ["YouTube URL or file path", "Upload audio/video"],
+                         format_func=lambda value: "Upload audio/video (Recommended)" if value == "Upload audio/video" else value)
+    st.markdown('<div class="recommendation">Recommended: upload an audio/video file to avoid YouTube download errors.</div>', unsafe_allow_html=True)
     uploaded_file = None
     source = ""
     if input_mode == "Upload audio/video":
@@ -382,7 +394,8 @@ with st.sidebar:
     default_provider = os.getenv("LLM_PROVIDER", "mistral").lower()
     provider = st.selectbox("AI provider", providers,
                             index=providers.index(default_provider) if default_provider in providers else 0,
-                            format_func=lambda value: {"mistral": "Mistral", "groq": "Groq"}[value])
+                            format_func=lambda value: {"mistral": "Mistral", "groq": "Groq (Recommended)"}[value])
+    st.markdown('<div class="recommendation">Recommended: use Groq for AI analysis. Free-tier limits apply.</div>', unsafe_allow_html=True)
     provider_label = {"mistral": "Mistral", "groq": "Groq"}[provider]
     provider_ready = bool(os.getenv(f"{provider.upper()}_API_KEY", "").strip())
     if not provider_ready:
