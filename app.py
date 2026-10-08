@@ -14,6 +14,7 @@ if not hasattr(extractor, "extract_meeting_details"):
     import importlib
     importlib.reload(extractor)
 from core.rag_engine import build_rag_chain, ask_question
+from utils.user_messages import explain_error
 
 # ─── Page Config ────────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -316,6 +317,7 @@ for key, default in {
     "processing": False,
     "pipeline_done": False,
     "pipeline_steps": {},
+    "pipeline_error": None,
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -326,6 +328,29 @@ def step_status(steps: dict, key: str) -> str:
     if s == "active":  return "dot-active"
     if s == "done":    return "dot-done"
     return "dot-pending"
+
+PIPELINE_STEPS = [
+    ("audio", "Prepare audio: download or convert, then split into chunks"),
+    ("transcript", "Transcribe audio into text"),
+    ("title", "Generate a meeting title"),
+    ("summary", "Summarize the transcript"),
+    ("extract", "Extract action items, decisions, and open questions"),
+    ("rag", "Prepare transcript search and question answering"),
+]
+
+
+def render_workflow(target):
+    states = st.session_state.pipeline_steps
+    completed = sum(states.get(key) == "done" for key, _ in PIPELINE_STEPS)
+    with target.container():
+        st.subheader("Processing workflow")
+        st.progress(completed / len(PIPELINE_STEPS), text=f"{completed} of {len(PIPELINE_STEPS)} steps completed")
+        for number, (key, label) in enumerate(PIPELINE_STEPS, 1):
+            state = states.get(key, "pending")
+            status = {"pending": "Waiting", "active": "Running", "done": "Completed", "failed": "Failed"}[state]
+            icon = {"pending": "○", "active": "⏳", "done": "✓", "failed": "✕"}[state]
+            st.markdown(f"{icon} **{number}. {label}** — {status}")
+
 
 def render_step_bar(label: str, key: str, icon: str):
     css = step_status(st.session_state.pipeline_steps, key)
@@ -373,6 +398,14 @@ st.markdown('<div class="hero-sub">Transcribe · Summarise · Chat with your mee
 st.markdown("---")
 
 # ── Run Pipeline ────────────────────────────────────────────────────────────────
+st.caption("This project uses Mistral's free API tier. Request and token limits apply.")
+workflow_placeholder = st.empty()
+error_placeholder = st.empty()
+if st.session_state.pipeline_steps:
+    render_workflow(workflow_placeholder)
+if st.session_state.pipeline_error:
+    error_placeholder.error(st.session_state.pipeline_error)
+
 if run_btn:
     if not source.strip() and uploaded_file is None:
         st.error("Please enter a YouTube URL or file path, or upload an audio/video file.")
@@ -381,16 +414,19 @@ if run_btn:
         st.session_state.result = None
         st.session_state.chat_history = []
         st.session_state.pipeline_steps = {}
+        st.session_state.pipeline_error = None
+        error_placeholder.empty()
 
         progress_placeholder = st.empty()
 
         def update_step(key, state):
             st.session_state.pipeline_steps[key] = state
+            render_workflow(workflow_placeholder)
 
         temporary_files = []
         try:
             with progress_placeholder.container():
-                st.info("⚙️ Pipeline running — see sidebar for live status…")
+                st.info("Processing your video. Follow the processing workflow.")
 
             update_step("audio", "active")
             if uploaded_file is not None:
@@ -446,8 +482,11 @@ if run_btn:
         except Exception as e:
             for k in ["audio","transcript","title","summary","extract","rag"]:
                 if st.session_state.pipeline_steps.get(k) == "active":
-                    st.session_state.pipeline_steps[k] = "pending"
-            progress_placeholder.error(f"❌ Error: {e}")
+                    st.session_state.pipeline_steps[k] = "failed"
+            render_workflow(workflow_placeholder)
+            progress_placeholder.empty()
+            st.session_state.pipeline_error = explain_error(e)
+            error_placeholder.error(st.session_state.pipeline_error)
         finally:
             for temporary_file in temporary_files:
                 temporary_file.unlink(missing_ok=True)
@@ -541,18 +580,21 @@ if st.session_state.result:
         send_btn = st.button("Send →", use_container_width=True)
 
     if send_btn and user_input.strip():
-        with st.spinner("Thinking…"):
-            answer = ask_question(r["rag_chain"], user_input.strip())
-        st.session_state.chat_history.append({"role": "user",      "content": user_input.strip()})
-        st.session_state.chat_history.append({"role": "assistant", "content": answer})
-        st.rerun()
+        try:
+            with st.spinner("Thinking…"):
+                answer = ask_question(r["rag_chain"], user_input.strip())
+            st.session_state.chat_history.append({"role": "user", "content": user_input.strip()})
+            st.session_state.chat_history.append({"role": "assistant", "content": answer})
+            st.rerun()
+        except Exception as error:
+            st.error(explain_error(error))
 
     if st.session_state.chat_history:
         if st.button("🗑️ Clear Chat", type="secondary"):
             st.session_state.chat_history = []
             st.rerun()
 
-else:
+elif not st.session_state.pipeline_steps:
     # Empty state
     st.markdown("""
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5rem 2rem;text-align:center">
